@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Author   : 
+# @Author   :
 # @Time     : 2021/6/25 上午10:52
 # @File     : HMM.py
 # @Software : PyCharm
 
+from random import random
 from copy import deepcopy
 import numpy as np
+
 
 A = np.array([
     [0, 1, 0],
@@ -41,10 +43,13 @@ class HMM(object):
     :param pi: 初始状态分布
     """
 
-    def __init__(self, transformer, observation, pi):
+    def __init__(self, transformer: [np.ndarray], observation: [np.ndarray], pi: [np.ndarray, list]):
         self.transformer = transformer
         self.observation = observation
-        self.pi = pi
+        if type(pi) == list:
+            self.pi = np.array(pi)
+        else:
+            self.pi = pi
         self.old_transformer = deepcopy(transformer)
         self.old_observation = deepcopy(observation)
         self.old_pi = deepcopy(pi)
@@ -279,7 +284,14 @@ class HMM(object):
                 self.observation[j, :] = self.observation[j, :] / self.observation[j, :].sum()
         return self.transformer, self.observation, self.pi
 
-    def expect_and_max(self, observe_seq, threshold=1e-5):
+    def expect_and_max(self, observe_seq, threshold=1e-5, print_param=False):
+        """
+        EM算法学习模型参数
+        :param observe_seq: 观测序列
+        :param threshold: 损失的阈值
+        :param print_param: 是否打印参数
+        :return:
+        """
         while True:
             self.get_alpha_beta_distribute(observe_seq)
             self.get_gamma_distribute(observe_seq)
@@ -291,9 +303,10 @@ class HMM(object):
                           (self.observation.shape[0] * self.observation.shape[1]) + \
                           abs(self.pi - self.old_pi).sum() / len(self.pi)
             if total_error < threshold:
-                print("self.transformer:\n", self.transformer)
-                print("self.observation:\n", self.observation)
-                print("self.pi:\n", self.pi)
+                if print_param:
+                    print("self.transformer:\n", self.transformer)
+                    print("self.observation:\n", self.observation)
+                    print("self.pi:\n", self.pi)
                 break
             else:
                 self.old_transformer = deepcopy(self.transformer)
@@ -301,13 +314,71 @@ class HMM(object):
                 self.old_pi = deepcopy(self.pi)
         return True
 
+    def random_pi(self):
+        """
+        初始化一个隐状态
+        :return: 状态[int], 从1开始计数
+        """
+        status = random()
+        for i in range(len(self.pi)-1):
+            if status < self.pi[:i+1].sum():
+                return i + 1
+        return len(self.pi)
+
+    def random_inner_status(self, input_status):
+        """
+        根据输入状态生成下一时刻的状态
+        :param input_status: 输入状态, 从1开始编码
+        :return:
+        """
+        transfer_prob = self.transformer[input_status-1]
+        status = random()
+        for i in range(len(transfer_prob) - 1):
+            if status < transfer_prob[:i + 1].sum():
+                return i + 1
+        return len(transfer_prob)
+
+    def random_observation_status(self, inner_status):
+        """
+        根据隐状态生成观测
+        :param inner_status: 隐状态
+        :return: 观测状态, 默认从1开始编码
+        """
+        observe_prob = self.observation[inner_status - 1]
+        status = random()
+        for i in range(len(observe_prob) - 1):
+            if status < observe_prob[:i + 1].sum():
+                return i + 1
+        return len(observe_prob)
+
+    def random_hmm(self, seq_len: [int]):
+        """
+        随机产生满足HMM模型的序列
+        :param seq_len: 序列长度
+        :return: <class 'numpy.ndarray'>, <class 'numpy.ndarray'>
+        """
+        # 生成初始状态
+        start_inner_status = self.random_pi()
+        inner_code = [start_inner_status]
+        for _ in range(seq_len - 1):
+            start_inner_status = self.random_inner_status(start_inner_status)
+            inner_code.append(start_inner_status)
+
+        # 生成观测状态
+        observe_seq = []
+        for i in range(seq_len):
+            observe_seq.append(self.random_observation_status(inner_code[i]))
+        return inner_code, observe_seq
+
 
 if __name__ == '__main__':
     hmm = HMM(A, B, [1 / 3, 1 / 3, 1 / 3])
     # hmm.get_gamma_distribute([6, 3, 1, 2, 4, 2])
     # hmm.get_xi_distribute([6, 3, 1, 2, 4, 2])
     # hmm.update_param([6, 3, 1, 2, 4, 2])
-    hmm.expect_and_max([6, 3, 1, 2, 4, 2])
+    _, observe = hmm.random_hmm(400)
+    hmm.expect_and_max(observe, print_param=True)
+    # hmm.expect_and_max([6, 3, 1, 2, 4, 2])
     # hmm.get_gamma_distribute([6, 3, 1, 2, 4, 2])
     # result = hmm.forward_prob_distribution([6, 3, 1, 2, 4, 2])
     # print(result)
