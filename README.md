@@ -89,9 +89,9 @@ result = hmm.get_backward_prob([1, 2, 1])
 
 ## 三、给定模型与观测，在时刻t处于状态qi的概率
 
-$$
-\gamma_{t}\left ( i \right )=\frac{\alpha_{t}(i)\beta_{t}(i)}{\sum_{j=1}^{N}\alpha_{t}(j)\beta_{t}(j)}
-$$
+<img src="http://latex.codecogs.com/gif.latex?\gamma_{t}\left ( i \right )=\frac{\alpha_{t}(i)\beta_{t}(i)}{\sum_{j=1}^{N}\alpha_{t}(j)\beta_{t}(j)}">
+
+
 
 
 
@@ -188,7 +188,8 @@ $$
 ### 5.3 在观测O下，由状态i转移到j的期望
 
 $$
-1 - \sum_{t=1}^{T-1} \left(1 -\xi _{t}\left ( i,j \right ) \right )
+1 - \sum_{t=1}^{T-1} \left(1 -\xi _{t}\left ( i,j \right ) \right )
+
 $$
 
 
