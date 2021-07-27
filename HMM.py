@@ -5,31 +5,32 @@
 # @File     : HMM.py
 # @Software : PyCharm
 
+from copy import deepcopy
 import numpy as np
 
-# A = np.array([
-#     [0, 1, 0],
-#     [0.2, 0.35, 0.45],
-#     [0.4, 0.14, 0.46]
-# ])
-# B = np.array([
-#     [1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6],
-#     [0.23, 0.2, 0.175, 0.14, 0.135, 0.12],
-#     [0.24, 0.2, 0.175, 0.13, 0.135, 0.12]
-# ])
-
-
 A = np.array([
-    [0.5, 0.2, 0.3],
-    [0.3, 0.5, 0.2],
-    [0.2, 0.3, 0.5]
+    [0, 1, 0],
+    [0.2, 0.35, 0.45],
+    [0.4, 0.14, 0.46]
+])
+B = np.array([
+    [1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6],
+    [0.23, 0.2, 0.175, 0.14, 0.135, 0.12],
+    [0.24, 0.2, 0.175, 0.13, 0.135, 0.12]
 ])
 
-B = np.array([
-    [0.5, 0.5],
-    [0.4, 0.6],
-    [0.7, 0.3]
-])
+
+# A = np.array([
+#     [0.5, 0.2, 0.3],
+#     [0.3, 0.5, 0.2],
+#     [0.2, 0.3, 0.5]
+# ])
+#
+# B = np.array([
+#     [0.5, 0.5],
+#     [0.4, 0.6],
+#     [0.7, 0.3]
+# ])
 
 
 class HMM(object):
@@ -44,6 +45,9 @@ class HMM(object):
         self.transformer = transformer
         self.observation = observation
         self.pi = pi
+        self.old_transformer = deepcopy(transformer)
+        self.old_observation = deepcopy(observation)
+        self.old_pi = deepcopy(pi)
         self.forward_alpha = 0
         self.backward_beta = 0
         self.gamma = 0
@@ -164,31 +168,33 @@ class HMM(object):
             qj - 1, observe_seq[t] - 1] * backward_distribution[qj - 1]
         return numerator / denominator
 
-    def expect_i_appear(self, observe_seq, qi):
+    def expect_i_appear_trans(self, observe_seq, qi, transfer=False):
         """
         在观测O下, 计算状态qi出现的概率
         :param observe_seq: 观测序列
         :param qi: 状态的编码, [默认从1开始编码]
+        :param transfer: 是否由状态qi转移, 默认False
         :return: 概率值
         """
-        res = 0
-        for t in range(1, len(observe_seq)+1):
-            res += self.get_qi2t_prob(observe_seq, t, qi)
-            print(res)
-        return res
+        res = 1
+        for t in range(1, len(observe_seq)):
+            res *= 1 - self.get_qi2t_prob(observe_seq, t, qi)
+        if not transfer:
+            res *= 1 - self.get_qi2t_prob(observe_seq, len(observe_seq), qi)
+        return 1 - res
 
-    def expect_i_transfer(self, observe_seq, qi):
+    def expect_i2j(self, observe_seq, qi, qj):
         """
         在观测O下, 计算状态转移的概率
         :param observe_seq: 观测序列
         :param qi: 状态的编码, [默认从1开始编码]
+        :param qj: 状态的编码, [默认从1开始编码]
         :return: 概率值
         """
-        res = 0
+        res = 1
         for t in range(1, len(observe_seq)):
-            res += self.get_qi2t_prob(observe_seq, t, qi)
-            print(res)
-        return res
+            res *= 1 - self.get_qi2t_qj2next_prob(observe_seq, t, qi, qj)
+        return 1 - res
 
     def get_alpha_beta_distribute(self, observe_seq):
         """
@@ -199,8 +205,8 @@ class HMM(object):
         length_seq = len(observe_seq)
         last_prob = np.array([0, 0, 0])
         last_backward = np.array([1] * self.transformer.shape[0])
-        self.forward_alpha = np.zeros((self.transformer.shape[0], length_seq-1))
-        for i in range(length_seq-1):
+        self.forward_alpha = np.zeros((self.transformer.shape[0], length_seq))
+        for i in range(length_seq):
             if i == 0:
                 last_prob = self.pi * self.observation[:, observe_seq[0] - 1]
             else:
@@ -217,6 +223,7 @@ class HMM(object):
         self.backward_beta[:, length_seq - 1] = np.array([1] * self.transformer.shape[0])
 
         del last_backward
+        observe_seq.reverse()
         return self.forward_alpha, self.backward_beta
 
     def get_gamma_distribute(self, observe_seq=None):
@@ -225,9 +232,9 @@ class HMM(object):
         :param observe_seq: 观测序列
         :return: self.gamma
         """
-        if self.backward_beta == 0 or self.forward_alpha == 0:
+        if type(self.backward_beta) == int or type(self.forward_alpha) == int:
             self.get_alpha_beta_distribute(observe_seq)
-        self.gamma = self.forward_alpha * self.backward_beta[:, :-1]
+        self.gamma = self.forward_alpha * self.backward_beta
         for i in range(self.gamma.shape[1]):
             self.gamma[:, i] = self.gamma[:, i] / sum(self.gamma[:, i])
         return self.gamma
@@ -238,11 +245,11 @@ class HMM(object):
         :param observe_seq: 观测序列
         :return: self.xi
         """
-        self.xi = np.zeros((len(observe_seq)-1, *self.transformer.shape))
+        self.xi = np.zeros((len(observe_seq) - 1, *self.transformer.shape))
         if type(self.backward_beta) == int or type(self.forward_alpha) == int:
             self.get_alpha_beta_distribute(observe_seq)
 
-        prob_observe_on_lambda = sum(self.backward_beta[:, 1]*self.forward_alpha[:, 1])
+        prob_observe_on_lambda = sum(self.backward_beta[:, 1] * self.forward_alpha[:, 1])
 
         for t in range(len(observe_seq) - 1):
             for i in range(self.transformer.shape[0]):
@@ -255,20 +262,52 @@ class HMM(object):
             self.xi[t, :, :] = self.xi[t, :, :] / prob_observe_on_lambda
         return self.xi
 
-    def update_param(self):
+    def update_param(self, observe_seq):
         self.pi = self.gamma[:, 0]
         for i in range(self.transformer.shape[0]):
-            self.transformer[i, :] = sum(self.xi[:, i, :]) / sum(self.gamma[i, :])
+            self.transformer[i, :] = sum(self.xi[:, i, :]) / sum(self.gamma[i, :-1])
             if self.transformer[i].sum() != 1.0:
+                assert abs(self.transformer[i].sum() - 1) < 1e-8, f"self.transformer[{i}, :].sum() Error"
                 self.transformer[i] = self.transformer[i] / self.transformer[i].sum()
-        return self.transformer
+        for j in range(self.observation.shape[0]):
+            total_gama_j = self.gamma[j, :].sum()
+            for k in range(self.observation.shape[1]):
+                self.observation[j, k] = np.array([self.gamma[j, t] for t in range(len(observe_seq))
+                                                   if observe_seq[t] - 1 == k]).sum() / total_gama_j
+            if self.observation[j, :].sum() != 1.0:
+                assert abs(self.observation[j, :].sum() - 1) < 1e-8, f"self.observation[{j}, :].sum() Error"
+                self.observation[j, :] = self.observation[j, :] / self.observation[j, :].sum()
+        return self.transformer, self.observation, self.pi
+
+    def expect_and_max(self, observe_seq, threshold=1e-5):
+        while True:
+            self.get_alpha_beta_distribute(observe_seq)
+            self.get_gamma_distribute(observe_seq)
+            self.get_xi_distribute(observe_seq)
+            self.update_param(observe_seq)
+            total_error = abs(self.transformer - self.old_transformer).sum() / \
+                          (self.transformer.shape[0] * self.transformer.shape[1]) + \
+                          abs(self.observation - self.old_observation).sum() / \
+                          (self.observation.shape[0] * self.observation.shape[1]) + \
+                          abs(self.pi - self.old_pi).sum() / len(self.pi)
+            if total_error < threshold:
+                print("self.transformer:\n", self.transformer)
+                print("self.observation:\n", self.observation)
+                print("self.pi:\n", self.pi)
+                break
+            else:
+                self.old_transformer = deepcopy(self.transformer)
+                self.old_observation = deepcopy(self.observation)
+                self.old_pi = deepcopy(self.pi)
+        return True
 
 
 if __name__ == '__main__':
-    # hmm = HMM(A, B, [1 / 3, 1 / 3, 1 / 3])
+    hmm = HMM(A, B, [1 / 3, 1 / 3, 1 / 3])
     # hmm.get_gamma_distribute([6, 3, 1, 2, 4, 2])
     # hmm.get_xi_distribute([6, 3, 1, 2, 4, 2])
-    # hmm.update_param()
+    # hmm.update_param([6, 3, 1, 2, 4, 2])
+    hmm.expect_and_max([6, 3, 1, 2, 4, 2])
     # hmm.get_gamma_distribute([6, 3, 1, 2, 4, 2])
     # result = hmm.forward_prob_distribution([6, 3, 1, 2, 4, 2])
     # print(result)
@@ -282,12 +321,12 @@ if __name__ == '__main__':
     # print(result)
     # result = hmm.get_qi2t_qj2next_prob([6, 3, 1, 2, 4, 2], 3, 1, 2)
     # print(result)
-    # result = hmm.expect_i_appear([6, 3, 1, 2, 4, 2], 3)
+    # result = hmm.expect_i_appear_trans([6, 3, 1, 2, 4, 2], 3)
     # print(result)
-    # result = hmm.expect_i_transfer([6, 3, 1, 2, 4, 2], 3)
+    # result = hmm.expect_i2j([6, 3, 1, 2, 4, 2], 2, 3)
     # print(result)
-    hmm = HMM(A, B, [0.2, 0.4, 0.4])
-    result = hmm.get_forward_prob([1, 2, 1])
-    print(result)
+    # hmm = HMM(A, B, [0.2, 0.4, 0.4])
+    # result = hmm.get_forward_prob([1, 2, 1])
+    # print(result)
     # result = hmm.get_backward_prob([1, 2, 1])
     # print(result)
