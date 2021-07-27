@@ -91,6 +91,7 @@ result = hmm.get_backward_prob([1, 2, 1])
 
 <img src="http://latex.codecogs.com/gif.latex?\gamma_{t}\left ( i \right )=\frac{\alpha_{t}(i)\beta_{t}(i)}{\sum_{j=1}^{N}\alpha_{t}(j)\beta_{t}(j)}">
 
+[](http://latex.codecogs.com/gif.latex?\gamma_{t}\left ( i \right )=\frac{\alpha_{t}(i)\beta_{t}(i)}{\sum_{j=1}^{N}\alpha_{t}(j)\beta_{t}(j)})
 
 
 
