@@ -6,7 +6,6 @@
         <b>参考资料来源：<a href="">《统计学习方法》第二版</a></b>
 	</p>
 </p>
-
 ---
 
 **目录**：
@@ -33,7 +32,7 @@
 
 
 
-## 一、前向概率计算
+# 一、前向概率计算
 
 以下A是状态概率转移矩阵，B是观测概率矩阵，hmm是一个模型的实例化。
 
@@ -61,7 +60,7 @@ result = hmm.get_forward_prob([1, 2, 1])
 
 
 
-## 二、后向概率计算
+# 二、后向概率计算
 
 ```python
 A = np.array([
@@ -87,7 +86,7 @@ result = hmm.get_backward_prob([1, 2, 1])
     <b><a href="#top">Top</a></b>&nbsp;<b>---</b>&nbsp;<b><a href="#bottom">Bottom</a></b>
 </p>
 
-## 三、给定模型与观测，在时刻t处于状态qi的概率
+# 三、给定模型与观测，在时刻t处于状态qi的概率
 
 <img src="http://latex.codecogs.com/gif.latex?\gamma_{t}\left ( i \right )=\frac{\alpha_{t}(i)\beta_{t}(i)}{\sum_{j=1}^{N}\alpha_{t}(j)\beta_{t}(j)}">
 
@@ -119,7 +118,7 @@ result = hmm.get_qi2t_prob([6, 3, 1, 2, 4, 2], 3, 2)
 
 
 
-## 四、给定模型与观测，t时刻处于qi，下一时刻处于qj的概率
+# 四、给定模型与观测，t时刻处于qi，下一时刻处于qj的概率
 
 $$
 \xi _{t}\left ( i,j \right )=P\left ( i_{t}=q_{i},i_{t+1}=q_{j}|O,\lambda  \right )=\frac{P\left ( i_{t}=q_{i},i_{t+1}=q_{j},O|\lambda  \right )}{P\left ( O|\lambda  \right )}\\
@@ -154,26 +153,12 @@ result = hmm.get_qi2t_qj2next_prob([6, 3, 1, 2, 4, 2], 3, 1, 2)
 
 
 
-## 五、一些重点期望值
+# 五、一些重点期望值
 
-### 5.1 在观测O下，状态i出现的期望值
-
-$$
-1 - \sum_{t=1}^{T} \left(1 -\gamma_{t}\left ( i \right ) \right )
-$$
-
-
-
----
-
-<p align="right">
-    <b><a href="#top">Top</a></b>&nbsp;<b>---</b>&nbsp;<b><a href="#bottom">Bottom</a></b>
-</p>
-
-### 5.2 在观测O下，由状态i转移的期望
+## 5.1 在观测O下，状态i出现的期望值
 
 $$
-1 - \sum_{t=1}^{T-1} \left(1 -\gamma_{t}\left ( i \right ) \right )
+1 - \prod_{t=1}^{T} \left( 1 - \gamma_{t}\left ( i \right ) \right )
 $$
 
 
@@ -184,11 +169,24 @@ $$
     <b><a href="#top">Top</a></b>&nbsp;<b>---</b>&nbsp;<b><a href="#bottom">Bottom</a></b>
 </p>
 
-### 5.3 在观测O下，由状态i转移到j的期望
+## 5.2 在观测O下，由状态i转移的期望
 
 $$
-1 - \sum_{t=1}^{T-1} \left(1 -\xi _{t}\left ( i,j \right ) \right )
+1 - \prod_{t=1}^{T-1} \left( 1 - \gamma_{t}\left ( i \right ) \right )
+$$
 
+
+
+---
+
+<p align="right">
+    <b><a href="#top">Top</a></b>&nbsp;<b>---</b>&nbsp;<b><a href="#bottom">Bottom</a></b>
+</p>
+
+## 5.3 在观测O下，由状态i转移到j的期望
+
+$$
+1 - \prod_{t=1}^{T-1} \left( 1 - \xi _{t}\left ( i,j \right ) \right )
 $$
 
 

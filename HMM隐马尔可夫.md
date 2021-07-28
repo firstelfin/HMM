@@ -715,20 +715,130 @@ def get_qi2t_qj2next_prob(self, observe_seq, t, qi, qj):
 <p align="right">
     <b><a href="#top">Top</a></b>&nbsp;<b>---</b>&nbsp;<b><a href="#bottom">Bottom</a></b>
 </p>
-
 ### 4.6.3 给定观测下出现状态$i$的期望
 
 $$
-\sum_{t=1}^{T}\gamma_{t}\left ( i \right )
+1 - \prod_{t=1}^{T} \left( 1 - \gamma_{t}\left ( i \right ) \right )
 $$
 
 **代码实现：**
 
 ```python
-# 待续
+def expect_i_appear_trans(self, observe_seq, qi, transfer=False):
+    """
+    在观测O下, 计算状态qi出现的概率
+    :param observe_seq: 观测序列
+    :param qi: 状态的编码, [默认从1开始编码]
+    :param transfer: 是否由状态qi转移, 默认False
+    :return: 概率值
+    """
+    res = 1
+    for t in range(1, len(observe_seq)):
+        res *= 1 - self.get_qi2t_prob(observe_seq, t, qi)
+    if not transfer:
+        res *= 1 - self.get_qi2t_prob(observe_seq, len(observe_seq), qi)
+    return 1 - res
 ```
 
-​		这一节的公式直接相加，我们回顾一下对于给定的模型$\lambda$ 和观测序列$O$，在时刻$t$处于状态$q_{i}$的概率为$\gamma_{t}\left ( i \right )$，在$t$时刻处于状态$q_{i}$，这个事件中可能包括了其他时刻也处于状态$q_{i}$。如果我们直接对时刻进行求和，出现的概率就会重复计算，导致出现超过1的期望值。
+​		这一节的公式在书本上是直接相加，我们回顾一下对于给定的模型$\lambda$ 和观测序列$O$，在时刻$t$处于状态$q_{i}$的概率为$\gamma_{t}\left ( i \right )$，在$t$时刻处于状态$q_{i}$，这个事件中可能包括了其他时刻也处于状态$q_{i}$。如果我们直接对时刻进行求和，出现的概率就会重复计算，导致出现超过1的期望值。
+
+---
+
+<p align="right">
+    <b><a href="#top">Top</a></b>&nbsp;<b>---</b>&nbsp;<b><a href="#bottom">Bottom</a></b>
+</p>
+
+
+### 4.6.4 给定观测下由状态$i$转移的期望
+
+$$
+1 - \prod_{t=1}^{T-1} \left( 1 - \gamma_{t}\left ( i \right ) \right )
+$$
+
+这里和上面的差异很小，只需将上面的代码形参transfer指定为True即可。
+
+```python
+A = np.array([
+    [0, 1, 0],
+    [0.2, 0.35, 0.45],
+    [0.4, 0.14, 0.46]
+])
+B = np.array([
+    [1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6],
+    [0.23, 0.2, 0.175, 0.14, 0.135, 0.12],
+    [0.24, 0.2, 0.175, 0.13, 0.135, 0.12]
+])
+hmm = HMM(A, B, [1 / 3, 1 / 3, 1 / 3])
+result = hmm.expect_i_appear_trans([6, 3, 1, 2, 4, 2], 3, True)
+print(result)
+------------------------------------------------------------
+Out[0]:
+	0.8718306572257475
+------------------------------------------------------------
+
+result = hmm.expect_i_appear_trans([6, 3, 1, 2, 4, 2], 3)
+print(result)
+------------------------------------------------------------
+Out[0]:
+	0.9155699657722511
+------------------------------------------------------------
+```
+
+---
+
+<p align="right">
+    <b><a href="#top">Top</a></b>&nbsp;<b>---</b>&nbsp;<b><a href="#bottom">Bottom</a></b>
+</p>
+
+
+### 4.6.5 给定观测下由状态$i$转移到状态$j$的期望
+
+$$
+1 - \prod_{t=1}^{T-1} \left( 1 - \xi _{t}\left ( i,j \right ) \right )
+$$
+
+**代码实现：**
+
+```python
+def expect_i2j(self, observe_seq, qi, qj):
+    """
+    在观测O下, 计算状态转移的概率
+    :param observe_seq: 观测序列
+    :param qi: 状态的编码, [默认从1开始编码]
+    :param qj: 状态的编码, [默认从1开始编码]
+    :return: 概率值
+    """
+    res = 1
+    for t in range(1, len(observe_seq)):
+        res *= 1 - self.get_qi2t_qj2next_prob(observe_seq, t, qi, qj)
+    return 1 - res
+```
+
+**使用：**
+
+```python
+A = np.array([
+    [0, 1, 0],
+    [0.2, 0.35, 0.45],
+    [0.4, 0.14, 0.46]
+])
+B = np.array([
+    [1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6],
+    [0.23, 0.2, 0.175, 0.14, 0.135, 0.12],
+    [0.24, 0.2, 0.175, 0.13, 0.135, 0.12]
+])
+hmm = HMM(A, B, [1 / 3, 1 / 3, 1 / 3])
+result = hmm.expect_i2j([6, 3, 1, 2, 4, 2], 2, 3)
+print(result)
+------------------------------------------------------------
+Out[0]:
+	0.6501034848435623
+------------------------------------------------------------
+```
+
+
+
+
 
 ---
 
@@ -988,16 +1098,7 @@ $$
 
 # 6、隐马尔可夫的预测问题
 
-```python
-        for t in range(len(observe_seq) - 1):
-            for i in range(self.transformer.shape[0]):
-                # for j in range(self.transformer.shape[0]):
-                #     self.xi[t, i, j] = self.forward_alpha[i, t] * self.transformer[i, j] * \
-                #                          self.observation[j, observe_seq[t+1] - 1] * self.backward_beta[j, t+1]
-                self.xi[t, i, j] = self.forward_alpha[i, t] * self.transformer[i, :] * \
-                                   self.observation[:, observe_seq[t + 1] - 1] * self.backward_beta[:, t + 1]
-            self.xi[t, :, :] = self.xi[t, :, :] / prob_observe_on_lambda
-```
+维特比算法求预测这个比较简单，因为维特比算法太常用了，这里不再赘述。
 
 
 
